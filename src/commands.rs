@@ -19,17 +19,15 @@ pub async fn setup(ctx: Context<'_>) -> CommandResult {
     Ok(())
 }
 
-/// 💥 Makes the vine boom sound
-#[tracing::instrument(skip_all)]
-#[poise::command(slash_command)]
-pub async fn boom(ctx: Context<'_>) -> CommandResult {
+#[inline]
+async fn playsound(ctx: Context<'_>, sound: &str, symbol: &str) -> CommandResult {
     let guild = ctx.guild_id().unwrap();
     let mgr = songbird::get(ctx.discord()).await.unwrap();
 
     if let Some(handler_lock) = mgr.get(guild) {
         let mut handler = handler_lock.lock().await;
 
-        let source = match songbird::ffmpeg("./sounds/vineboom.mp3").await {
+        let source = match songbird::ffmpeg(sound).await {
             Ok(source) => source,
             Err(why) => {
                 tracing::error!("Err starting source: {:?}", why);
@@ -43,13 +41,82 @@ pub async fn boom(ctx: Context<'_>) -> CommandResult {
 
         handler.play_source(source);
 
-        ctx.say("💥").await?;
+        ctx.say(symbol).await?;
     } else {
         ctx.send(|reply| reply.content("Not in a voice channel!").ephemeral(true))
             .await?;
     }
 
     Ok(())
+}
+
+/// 🛑 Stops the current playing audio
+#[tracing::instrument(skip_all)]
+#[poise::command(slash_command)]
+pub async fn stop(ctx: Context<'_>) -> CommandResult {
+    let guild = ctx.guild_id().unwrap();
+    let mgr = songbird::get(ctx.discord()).await.unwrap();
+    if let Some(handler_lock) = mgr.get(guild) {
+        let mut handler = handler_lock.lock().await;
+
+        handler.stop();
+
+        ctx.say("Stopped current playing audio!").await?;
+    } else {
+        ctx.send(|reply| reply.content("Not in a voice channel!").ephemeral(true))
+            .await?;
+    }
+    Ok(())
+}
+
+/// 🎵 Plays the audio from the provided link
+#[tracing::instrument(skip_all)]
+#[poise::command(slash_command)]
+pub async fn play(
+    ctx: Context<'_>,
+    #[description = "URL to be played"] link: String,
+) -> CommandResult {
+    let guild = ctx.guild_id().unwrap();
+    let mgr = songbird::get(ctx.discord()).await.unwrap();
+
+    if let Some(handler_lock) = mgr.get(guild) {
+        let mut handler = handler_lock.lock().await;
+
+        let source = match songbird::ytdl(&link).await {
+            Ok(source) => source,
+            Err(why) => {
+                tracing::error!("Err starting source: {:?}", why);
+
+                ctx.send(|reply| reply.content("Failed to load audio!").ephemeral(true))
+                    .await?;
+
+                return Ok(());
+            }
+        };
+
+        handler.play_source(source);
+
+        ctx.say(format!("Playing `{link}`")).await?;
+    } else {
+        ctx.send(|reply| reply.content("Not in a voice channel!").ephemeral(true))
+            .await?;
+    }
+
+    Ok(())
+}
+
+/// 💥 Makes the vine boom sound
+#[tracing::instrument(skip_all)]
+#[poise::command(slash_command)]
+pub async fn boom(ctx: Context<'_>) -> CommandResult {
+    playsound(ctx, "./sounds/vineboom.mp3", "💥").await
+}
+
+/// 👯‍♂️ Makes the uwu sound
+#[tracing::instrument(skip_all)]
+#[poise::command(slash_command)]
+pub async fn uwu(ctx: Context<'_>) -> CommandResult {
+    playsound(ctx, "./sounds/uwu.mp3", "uwu").await
 }
 
 /// 🚪 Leaves the current voice channel
@@ -96,12 +163,13 @@ pub async fn join(ctx: Context<'_>) -> CommandResult {
         let songbird = songbird::get(ctx_discord).await.unwrap();
 
         let _handle = songbird.join(guild_id, channel.id()).await;
+
+        ctx.send(|reply| reply.content("Joined your channel"))
+            .await?;
     } else {
         ctx.send(|reply| reply.content("You are not in a voice channel!"))
             .await?;
     }
 
-    ctx.send(|reply| reply.content("Joined your channel"))
-        .await?;
     Ok(())
 }

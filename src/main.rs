@@ -15,7 +15,7 @@ async fn main() {
 
     let framework = Framework::builder()
         .options(FrameworkOptions {
-            commands: vec![setup(), join(), leave(), boom()],
+            commands: vec![setup(), join(), leave(), boom(), play(), uwu(), stop()],
             ..Default::default()
         })
         .token(token)
