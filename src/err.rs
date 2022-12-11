@@ -4,6 +4,8 @@ use thiserror::Error;
 pub enum CommandError {
     #[error("A Serenity API error has occurred: {0}")]
     APIError(#[from] serenity::Error),
+    #[error("A GPT error has occurred: {0}")]
+    GPTError(#[from] chatgpt::err::Error),
     #[error("An unknown error has occurred!")]
     Unknown,
 }

@@ -1,13 +1,30 @@
+pub mod gpt;
+
+use std::sync::Arc;
+
+use chatgpt::converse::ChatConversation;
+use poise::futures_util::lock::Mutex;
 use tracing::info;
 
 use crate::err::CommandError;
 
-type Error = CommandError;
-type Context<'a> = poise::Context<'a, Data, Error>;
+pub type Error = CommandError;
+pub type Context<'a> = poise::Context<'a, UserData, Error>;
 
-#[derive(Debug)]
-pub struct Data;
-type CommandResult = Result<(), Error>;
+#[derive(Debug, Clone)]
+pub struct UserData {
+    pub conversation: Arc<Mutex<Option<ChatConversation>>>,
+}
+
+impl Default for UserData {
+    fn default() -> Self {
+        Self {
+            conversation: Arc::new(Mutex::new(None)),
+        }
+    }
+}
+
+pub type CommandResult = Result<(), Error>;
 
 /// Sets up the bot
 #[poise::command(prefix_command, owners_only, ephemeral)]
@@ -22,7 +39,7 @@ pub async fn setup(ctx: Context<'_>) -> CommandResult {
 #[inline]
 async fn playsound(ctx: Context<'_>, sound: &str, symbol: &str) -> CommandResult {
     let guild = ctx.guild_id().unwrap();
-    let mgr = songbird::get(ctx.discord()).await.unwrap();
+    let mgr = songbird::get(ctx.serenity_context()).await.unwrap();
 
     if let Some(handler_lock) = mgr.get(guild) {
         let mut handler = handler_lock.lock().await;
@@ -55,7 +72,7 @@ async fn playsound(ctx: Context<'_>, sound: &str, symbol: &str) -> CommandResult
 #[poise::command(slash_command)]
 pub async fn stop(ctx: Context<'_>) -> CommandResult {
     let guild = ctx.guild_id().unwrap();
-    let mgr = songbird::get(ctx.discord()).await.unwrap();
+    let mgr = songbird::get(ctx.serenity_context()).await.unwrap();
     if let Some(handler_lock) = mgr.get(guild) {
         let mut handler = handler_lock.lock().await;
 
@@ -77,7 +94,7 @@ pub async fn play(
     #[description = "URL to be played"] link: String,
 ) -> CommandResult {
     let guild = ctx.guild_id().unwrap();
-    let mgr = songbird::get(ctx.discord()).await.unwrap();
+    let mgr = songbird::get(ctx.serenity_context()).await.unwrap();
 
     if let Some(handler_lock) = mgr.get(guild) {
         let mut handler = handler_lock.lock().await;
@@ -124,7 +141,7 @@ pub async fn uwu(ctx: Context<'_>) -> CommandResult {
 pub async fn leave(ctx: Context<'_>) -> CommandResult {
     let guild_id = ctx.guild_id().unwrap();
 
-    let manager = songbird::get(ctx.discord())
+    let manager = songbird::get(ctx.serenity_context())
         .await
         .expect("Songbird Voice client placed in at initialisation.")
         .clone();
@@ -157,7 +174,7 @@ pub async fn join(ctx: Context<'_>) -> CommandResult {
             .get(&voice_state.channel_id.ok_or(CommandError::Unknown)?)
             .unwrap();
 
-        let ctx_discord = ctx.discord();
+        let ctx_discord = ctx.serenity_context();
         let guild_id = ctx.guild_id().unwrap();
 
         let songbird = songbird::get(ctx_discord).await.unwrap();

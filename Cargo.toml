@@ -11,7 +11,8 @@ tracing-subscriber = "0.3.16"
 tracing-futures = "0.2"
 songbird = "0.3.0"
 thiserror = "1.0.37"
-poise = "0.4.1"
+poise = "0.5.1"
+chatgpt_rs = "0.6.0"
 
 [dependencies.serenity]
 version = "0.11"
